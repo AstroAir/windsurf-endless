@@ -1,10 +1,16 @@
 {
   "extends": "@tomjs/tsconfig/react.json",
   "compilerOptions": {
+    "target": "ESNext",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "paths": {
       "@/*": ["./webview/*"]
-    }
+    },
+    "types": ["vite/client", "@types/vscode-webview"]
   },
   "references": [{ "path": "./tsconfig.node.json" }],
   "include": ["webview"]

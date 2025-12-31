@@ -1,9 +1,9 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../App';
 
-import { mockVsCodeApi } from './setup';
+import './setup';
 
 describe('app', () => {
   beforeEach(() => {
@@ -12,91 +12,47 @@ describe('app', () => {
 
   it('renders the main title', () => {
     render(<App />);
-    expect(screen.getByText('VSCode Extension Starter')).toBeInTheDocument();
+    expect(screen.getByText('Windsurf Endless')).toBeInTheDocument();
   });
 
   it('renders the subtitle', () => {
     render(<App />);
-    expect(screen.getByText('React + shadcn/ui + Tailwind CSS')).toBeInTheDocument();
+    expect(screen.getByText('Infinite Ask - 无限对话扩展')).toBeInTheDocument();
   });
 
-  it('renders message card', () => {
+  it('renders MCP status card', () => {
     render(<App />);
-    expect(screen.getByText('Message')).toBeInTheDocument();
-    expect(screen.getByText('Send a message to the VSCode extension')).toBeInTheDocument();
+    expect(screen.getByText('MCP 服务状态')).toBeInTheDocument();
   });
 
-  it('renders state management card', () => {
+  it('renders quick stats card', () => {
     render(<App />);
-    expect(screen.getByText('State Management')).toBeInTheDocument();
-    expect(screen.getByText('Persist state across webview sessions')).toBeInTheDocument();
+    expect(screen.getByText('快速统计')).toBeInTheDocument();
   });
 
-  it('updates message input value', () => {
+  it('renders features section', () => {
     render(<App />);
-    const input = screen.getByPlaceholderText('Enter message...');
-    fireEvent.change(input, { target: { value: 'Hello' } });
-    expect(input).toHaveValue('Hello');
+    expect(screen.getByText('功能特性')).toBeInTheDocument();
   });
 
-  it('shows message preview when message is entered', () => {
+  it('renders navigation tabs', () => {
     render(<App />);
-    const input = screen.getByPlaceholderText('Enter message...');
-    fireEvent.change(input, { target: { value: 'Test message' } });
-    expect(screen.getByText('Preview: Test message')).toBeInTheDocument();
+    expect(screen.getByText('首页')).toBeInTheDocument();
+    expect(screen.getByText('对话')).toBeInTheDocument();
+    expect(screen.getByText('历史')).toBeInTheDocument();
+    expect(screen.getByText('设置')).toBeInTheDocument();
   });
 
-  it('sends message to VSCode when button is clicked', () => {
+  it('renders feature cards', () => {
     render(<App />);
-    const input = screen.getByPlaceholderText('Enter message...');
-    fireEvent.change(input, { target: { value: 'Hello World' } });
-
-    const sendButton = screen.getByRole('button', { name: /send message/i });
-    fireEvent.click(sendButton);
-
-    expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith({
-      type: 'hello',
-      data: '💬: Hello World',
-    });
+    expect(screen.getByText('多对话管理')).toBeInTheDocument();
+    expect(screen.getByText('历史记录')).toBeInTheDocument();
+    expect(screen.getByText('无限续杯')).toBeInTheDocument();
+    expect(screen.getByText('灵活配置')).toBeInTheDocument();
   });
 
-  it('sends empty message placeholder when message is empty', () => {
+  it('renders version badge', () => {
     render(<App />);
-    const sendButton = screen.getByRole('button', { name: /send message/i });
-    fireEvent.click(sendButton);
-
-    expect(mockVsCodeApi.postMessage).toHaveBeenCalledWith({
-      type: 'hello',
-      data: '💬: Empty',
-    });
-  });
-
-  it('updates state input value', () => {
-    render(<App />);
-    const input = screen.getByPlaceholderText('Enter state...');
-    fireEvent.change(input, { target: { value: 'my-state' } });
-    expect(input).toHaveValue('my-state');
-  });
-
-  it('saves state when Save State button is clicked', () => {
-    render(<App />);
-    const input = screen.getByPlaceholderText('Enter state...');
-    fireEvent.change(input, { target: { value: 'saved-state' } });
-
-    const saveButton = screen.getByRole('button', { name: /save state/i });
-    fireEvent.click(saveButton);
-
-    expect(mockVsCodeApi.setState).toHaveBeenCalledWith('saved-state');
-  });
-
-  it('loads state when Load State button is clicked', () => {
-    mockVsCodeApi.getState.mockReturnValue('loaded-state' as any);
-    render(<App />);
-
-    const loadButton = screen.getByRole('button', { name: /load state/i });
-    fireEvent.click(loadButton);
-
-    const input = screen.getByPlaceholderText('Enter state...');
-    expect(input).toHaveValue('loaded-state');
+    expect(screen.getByText('v1.0.0')).toBeInTheDocument();
   });
 });
