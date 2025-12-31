@@ -1,0 +1,106 @@
+{
+  "publisher": "your-publisher",
+  "name": "vscode-extension-quick-starter",
+  "displayName": "VSCode Extension Quick Starter",
+  "type": "commonjs",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@10.26.2",
+  "description": "VSCode extension starter with React + shadcn/ui",
+  "license": "MIT",
+  "homepage": "https://github.com/AstroAir/vscode-extension-quick-starter#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AstroAir/vscode-extension-quick-starter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AstroAir/vscode-extension-quick-starter/issues"
+  },
+  "main": "dist/extension/index.js",
+  "engines": {
+    "node": ">=20",
+    "vscode": "^1.93.0"
+  },
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "hello-world.showHelloWorld",
+        "title": "Hello World: Show"
+      }
+    ]
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:extension": "vite build --watch",
+    "build": "pnpm run clean && pnpm run typecheck && vite build",
+    "build:prod": "pnpm run clean && pnpm run typecheck && vite build --mode production",
+    "build:analyze": "vite build --mode production --config vite.config.ts -- --analyze",
+    "preview": "vite preview",
+    "clean": "rimraf dist .vscode-test test-results playwright-report __tests__/out",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:extension": "tsc -p __tests__/tsconfig.json && node __tests__/out/extension/runTests.js",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "test:all": "pnpm run test && pnpm run test:extension && pnpm run test:e2e",
+    "package": "pnpm run build:prod && vsce package --no-dependencies",
+    "package:pre": "pnpm run build:prod && vsce package --no-dependencies --pre-release",
+    "publish": "pnpm run build:prod && vsce publish --no-dependencies",
+    "publish:pre": "pnpm run build:prod && vsce publish --no-dependencies --pre-release",
+    "vscode:prepublish": "pnpm run build:prod",
+    "prepare": "simple-git-hooks",
+    "release": "pnpm run test:all && pnpm run package"
+  },
+  "dependencies": {
+    "@radix-ui/react-label": "^2.1.1",
+    "@radix-ui/react-separator": "^1.1.1",
+    "@radix-ui/react-slot": "^1.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^6.7.3",
+    "@commitlint/cli": "^20.2.0",
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@tomjs/commitlint": "^5.0.0",
+    "@tomjs/eslint": "^6.2.0",
+    "@tomjs/tsconfig": "^2.2.0",
+    "@tomjs/vite-plugin-vscode": "^6.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.19.27",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/vscode": "^1.93.0",
+    "@types/vscode-webview": "^1.57.5",
+    "@vitejs/plugin-react-swc": "^4.2.2",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.4.2",
+    "eslint": "^9.39.2",
+    "glob": "^11.0.2",
+    "jsdom": "^26.1.0",
+    "lint-staged": "^16.2.7",
+    "mocha": "^11.5.0",
+    "playwright": "^1.57.0",
+    "rimraf": "^6.1.2",
+    "simple-git-hooks": "^2.13.1",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.4"
+  }
+}

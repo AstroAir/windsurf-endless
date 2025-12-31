@@ -1,0 +1,51 @@
+# Source files
+webview/
+extension/
+src/
+
+# Development files
+.vscode/
+.github/
+node_modules/
+
+# Config files
+*.config.ts
+*.config.mjs
+tsconfig*.json
+components.json
+eslint.config.mjs
+lint-staged.config.mjs
+commitlint.config.mjs
+simple-git-hooks.mjs
+stylelint.config.mjs
+
+# Build tools
+vite.config.ts
+
+# Documentation
+*.md
+!README.md
+
+# Package manager
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Editor configs
+.editorconfig
+.gitattributes
+.gitignore
+
+# Test files
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+vitest.config.ts
+coverage/
+
+# Misc
+.env*
+*.log
+.DS_Store
+Thumbs.db
