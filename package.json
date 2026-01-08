@@ -1,12 +1,12 @@
 {
   "publisher": "your-publisher",
   "name": "windsurf-endless",
-  "displayName": "Windsurf Endless - Infinite Ask",
+  "displayName": "Windsurf Endless",
   "type": "commonjs",
   "version": "0.0.1",
   "private": true,
   "packageManager": "pnpm@10.26.2",
-  "description": "Infinite Ask extension for Windsurf/Cursor - Continuous conversation through MCP",
+  "description": "Windsurf Endless extension for Windsurf/Cursor - Continuous conversation through MCP",
   "license": "MIT",
   "homepage": "https://github.com/AstroAir/vscode-extension-quick-starter#readme",
   "repository": {
@@ -36,7 +36,7 @@
       },
       {
         "command": "windsurf-endless.showInfiniteAsk",
-        "title": "Windsurf Endless: Test Infinite Ask Dialog"
+        "title": "Windsurf Endless: Test Windsurf Endless Dialog"
       },
       {
         "command": "windsurf-endless.removeConfig",
@@ -92,7 +92,10 @@
     "lucide-react": "^0.468.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.6.0",
+    "rehype-raw": "^7.0.0",
+    "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {

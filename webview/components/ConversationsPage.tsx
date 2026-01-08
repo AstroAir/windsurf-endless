@@ -50,7 +50,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { useApp, useConversations } from '../store';
+import { useConversations } from '../store';
 
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp);
@@ -69,8 +69,8 @@ export function ConversationsPage() {
     createConversation,
     deleteConversation,
     switchConversation,
+    updateConversation,
   } = useConversations();
-  const { dispatch } = useApp();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newConversationName, setNewConversationName] = useState('');
@@ -88,10 +88,7 @@ export function ConversationsPage() {
 
   const handleRename = (id: string) => {
     if (editingName.trim()) {
-      dispatch({
-        type: 'UPDATE_CONVERSATION',
-        payload: { id, updates: { name: editingName.trim() } },
-      });
+      updateConversation(id, { name: editingName.trim() });
       setEditingId(null);
       setEditingName('');
     }

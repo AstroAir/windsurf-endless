@@ -1,4 +1,4 @@
-// Infinite Ask Dialog Component
+// Windsurf Endless Dialog Component
 import { AlertCircle, ChevronRight, Code, FileText, FlaskConical, History, Image as ImageIcon, Keyboard, Loader2, MessageCircle, MessageSquare, Play, Shield, Sparkles, Square, Star, Volume2, VolumeX, Wand2, Wrench, X, Zap } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -14,10 +14,12 @@ import { audioManager } from '../lib/audioManager';
 import { autoSubmitManager } from '../lib/autoSubmitManager';
 import { promptManager } from '../lib/promptManager';
 import { sessionManager } from '../lib/sessionManager';
+import { useConversations, useHistory } from '../store';
 import { vscode } from '../utils/vscode';
 
 import { AutoSubmitCountdown } from './AutoSubmitCountdown';
 import { ConnectionStatus } from './ConnectionStatus';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { PromptManagerPanel } from './PromptManagerPanel';
 import { SessionHistoryPanel } from './SessionHistoryPanel';
 
@@ -52,17 +54,21 @@ interface InfiniteAskDialogProps {
   reason?: string;
   summary?: string;
   workspacePath?: string;
+  panelId?: string;
   onContinue?: (instruction?: string) => void;
   onEnd?: () => void;
 }
 
 export function InfiniteAskDialog({
-  reason = '任务已完成',
-  summary,
+  reason = '',
+  summary = '',
   workspacePath = '',
+  panelId: _panelId, // Reserved for future multi-window tracking
   onContinue,
   onEnd,
 }: InfiniteAskDialogProps) {
+  const { activeConversation, createConversation, switchConversation, updateConversation } = useConversations();
+  const { addHistoryItem } = useHistory();
   const [instruction, setInstruction] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -78,9 +84,16 @@ export function InfiniteAskDialog({
     if (!sessionManager.getCurrentSession()) {
       sessionManager.createSession(workspacePath, workspacePath);
     }
+    if (!activeConversation) {
+      const created = createConversation('默认对话', workspacePath);
+      switchConversation(created.id);
+    }
+    else if (!activeConversation.workspacePath && workspacePath) {
+      updateConversation(activeConversation.id, { workspacePath });
+    }
     audioManager.playSessionUpdate();
     return promptManager.subscribe(() => setPrompts(promptManager.getPromptsSortedByUsage().slice(0, 9)));
-  }, [workspacePath]);
+  }, [workspacePath, activeConversation, createConversation, switchConversation, updateConversation]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
@@ -111,13 +124,24 @@ export function InfiniteAskDialog({
     setIsSubmitting(true);
     autoSubmitManager.cancel();
     const finalInstruction = customInstruction ?? instruction.trim();
+    // Record session with both summary and reason
+    const displaySummary = summary || reason || '任务已完成';
     sessionManager.addMessage({
       type: 'response',
-      summary: summary || reason,
+      summary: displaySummary,
       userInstruction: finalInstruction,
       shouldContinue: true,
       hasImages: pastedImages.length > 0,
       imageCount: pastedImages.length,
+    });
+    const targetConversation = activeConversation;
+    addHistoryItem({
+      conversationId: targetConversation?.id ?? 'default',
+      conversationName: targetConversation?.name ?? '默认对话',
+      workspacePath: targetConversation?.workspacePath || workspacePath || '',
+      summary: displaySummary,
+      action: 'continue',
+      userInstruction: finalInstruction || undefined,
     });
     vscode.postMessage({
       type: 'infinite_ask_response',
@@ -128,7 +152,7 @@ export function InfiniteAskDialog({
       },
     });
     onContinue?.(finalInstruction || undefined);
-  }, [instruction, onContinue, pastedImages, reason, summary]);
+  }, [instruction, onContinue, pastedImages, reason, summary, addHistoryItem, activeConversation, workspacePath]);
 
   useEffect(() => {
     autoSubmitManager.setOnSubmit(() => handleContinue());
@@ -141,11 +165,21 @@ export function InfiniteAskDialog({
   const handleEnd = useCallback(() => {
     setIsSubmitting(true);
     autoSubmitManager.cancel();
+    // Record session with both summary and reason
+    const displaySummary = summary || reason || '任务已完成';
     sessionManager.addMessage({
       type: 'response',
-      summary: summary || reason,
+      summary: displaySummary,
       shouldContinue: false,
       hasImages: false,
+    });
+    const targetConversation = activeConversation;
+    addHistoryItem({
+      conversationId: targetConversation?.id ?? 'default',
+      conversationName: targetConversation?.name ?? '默认对话',
+      workspacePath: targetConversation?.workspacePath || workspacePath || '',
+      summary: displaySummary,
+      action: 'end',
     });
     const session = sessionManager.getCurrentSession();
     if (session) {
@@ -153,7 +187,7 @@ export function InfiniteAskDialog({
     }
     vscode.postMessage({ type: 'infinite_ask_response', data: { shouldContinue: false } });
     onEnd?.();
-  }, [onEnd, reason, summary]);
+  }, [onEnd, reason, summary, addHistoryItem, activeConversation, workspacePath]);
 
   const handlePromptSelect = useCallback((prompt: PromptTemplate) => {
     setInstruction(prompt.content);
@@ -245,7 +279,7 @@ export function InfiniteAskDialog({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="size-6 text-primary" />
-              <CardTitle className="text-xl">Infinite Ask</CardTitle>
+              <CardTitle className="text-xl">Windsurf Endless</CardTitle>
             </div>
             <div className="flex items-center gap-2">
               <ConnectionStatus compact />
@@ -288,13 +322,45 @@ export function InfiniteAskDialog({
           </div>
           <TabsContent value="main" className="mt-0">
             <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <AlertCircle className="size-4" />
-                  <span>AI 想要结束的原因：</span>
+              {/* Display summary (what AI did) */}
+              {summary && summary.trim() && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Sparkles className="size-4" />
+                    <span>AI 完成的任务：</span>
+                  </div>
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-sm leading-relaxed">
+                    <MarkdownRenderer content={summary} />
+                  </div>
                 </div>
-                <div className="rounded-lg bg-muted p-3 text-sm leading-relaxed">{summary || reason}</div>
-              </div>
+              )}
+              {/* Display reason (why AI wants to stop) */}
+              {reason && reason.trim() && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <AlertCircle className="size-4" />
+                    <span>AI 想要结束的原因：</span>
+                  </div>
+                  <div className="rounded-lg bg-muted p-3 text-sm leading-relaxed">
+                    <MarkdownRenderer content={reason} />
+                  </div>
+                </div>
+              )}
+              {/* Fallback if neither summary nor reason has meaningful content */}
+              {(!summary || !summary.trim()) && (!reason || !reason.trim()) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Sparkles className="size-4" />
+                    <span>AI 状态：</span>
+                  </div>
+                  <div className="rounded-lg bg-primary/10 border border-primary/20 p-3 text-sm leading-relaxed">
+                    <p className="text-muted-foreground">AI 已完成当前任务阶段，正在等待您的确认。</p>
+                    <p className="mt-2 text-xs text-muted-foreground/70">
+                      提示：如果您看到此消息但期望看到详细的任务摘要，可能是 MCP 工具调用时未提供 summary 参数。
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -382,7 +448,12 @@ export function InfiniteAskDialog({
                     {pastedImages.map(img => (
                       <div key={img.id} className="relative group">
                         <img src={img.dataUrl} alt={img.name} className="h-16 w-16 object-cover rounded-md border" />
-                        <button type="button" onClick={() => removeImage(img.id)} className="absolute -top-1 -right-1 size-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          aria-label="移除图片"
+                          onClick={() => removeImage(img.id)}
+                          className="absolute -top-1 -right-1 size-4 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
                           <X className="size-3" />
                         </button>
                       </div>
@@ -423,21 +494,44 @@ export function InfiniteAskDialog({
   );
 }
 
-export function InfiniteAskPage() {
-  const [dialogData, setDialogData] = useState<{ reason?: string; summary?: string; workspacePath?: string }>({});
+interface InfiniteAskPageProps {
+  initialData?: { reason?: string; summary?: string; workspacePath?: string; panelId?: string } | null;
+}
+
+export function InfiniteAskPage({ initialData }: InfiniteAskPageProps = {}) {
+  const [dialogData, setDialogData] = useState<{ reason?: string; summary?: string; workspacePath?: string; panelId?: string }>(
+    initialData || {},
+  );
   const [isResolved, setIsResolved] = useState(false);
+
+  // Initialize with initial data if provided
+  useEffect(() => {
+    if (initialData) {
+      console.log('[InfiniteAskPage] Initialized with initial data:', initialData);
+      setDialogData(initialData);
+    }
+  }, [initialData]);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       if (event.data.type === 'infinite_ask_request') {
+        const data = event.data.data || {};
+        console.log('[InfiniteAskPage] Received infinite_ask_request:', data);
+
+        // Extract summary and reason, handling various formats
+        const summary = data.summary || data.message || data.content || data.text || '';
+        const reason = data.reason || data.stop_reason || data.explanation || '';
+
         setDialogData({
-          reason: event.data.data?.reason,
-          summary: event.data.data?.summary,
-          workspacePath: event.data.data?.workspacePath,
+          reason,
+          summary,
+          workspacePath: data.workspacePath || '',
+          panelId: data.panelId || '',
         });
         setIsResolved(false);
       }
     };
+
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
   }, []);

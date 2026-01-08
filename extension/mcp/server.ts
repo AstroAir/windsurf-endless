@@ -1,5 +1,5 @@
 /**
- * Infinite Ask MCP Server
+ * Windsurf Endless MCP Server
  * TypeScript implementation for VSCode extension integration
  * Supports both stdio and HTTP/SSE transport
  */
@@ -160,7 +160,7 @@ function log(level: string, message: string, data?: any): void {
     return;
   }
   const timestamp = new Date().toISOString();
-  let logMsg = `[${timestamp}] [infinite_ask] [${level}] ${message}`;
+  let logMsg = `[${timestamp}] [windsurf-endless] [${level}] ${message}`;
   if (data) {
     logMsg += ` | ${JSON.stringify(data)}`;
   }
@@ -168,23 +168,27 @@ function log(level: string, message: string, data?: any): void {
 }
 
 // ==================== Local Popups ====================
-export async function showLocalPopup(reason: string): Promise<PopupResult> {
+export async function showLocalPopup(request: PopupRequest): Promise<PopupResult> {
+  const summary = request.summary || request.reason || '任务已完成';
+  const reason = request.reason || request.summary || '任务已完成';
+
   // Use custom handler if available (VSCode UI)
   if (customPopupHandler) {
-    log('INFO', 'Using custom popup handler (VSCode UI)');
-    return customPopupHandler({ summary: reason, reason });
+    log('INFO', 'Using custom popup handler (VSCode UI)', { summary, reason });
+    return customPopupHandler({ summary, reason });
   }
 
   // Fallback to system popups (should not be used when extension is active)
   log('INFO', 'Using fallback system popup');
+  const displayText = summary !== reason ? `${summary}\n\n原因：${reason}` : summary;
   if (process.platform === 'win32') {
-    return showWindowsPopup(reason);
+    return showWindowsPopup(displayText);
   }
   else if (process.platform === 'darwin') {
-    return showMacPopup(reason);
+    return showMacPopup(displayText);
   }
   else {
-    return showLinuxPopup(reason);
+    return showLinuxPopup(displayText);
   }
 }
 
@@ -198,7 +202,7 @@ function showWindowsPopup(reason: string): Promise<PopupResult> {
 Add-Type -AssemblyName System.Windows.Forms
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Infinite Ask'
+$form.Text = 'Windsurf Endless'
 $form.Size = New-Object System.Drawing.Size(450, 320)
 $form.StartPosition = 'CenterScreen'
 $form.TopMost = $true
@@ -260,7 +264,7 @@ function showMacPopup(reason: string): Promise<PopupResult> {
   return new Promise((resolve) => {
     const escapedReason = reason.replace(/"/g, '\\"').replace(/'/g, "'\\''");
     const appleScript = `
-set dialogResult to display dialog "AI想要结束的原因:\\n${escapedReason}\\n\\n请输入新指令(可选):" default answer "" buttons {"结束对话", "继续执行"} default button "继续执行" with title "Infinite Ask" with icon note
+set dialogResult to display dialog "AI想要结束的原因:\\n${escapedReason}\\n\\n请输入新指令(可选):" default answer "" buttons {"结束对话", "继续执行"} default button "继续执行" with title "Windsurf Endless" with icon note
 
 if button returned of dialogResult is "继续执行" then
     return "CONTINUE:::" & text returned of dialogResult
@@ -297,7 +301,7 @@ function showLinuxPopup(reason: string): Promise<PopupResult> {
     const escapedReason = reason.replace(/"/g, '\\"');
     const tempFile = path.join(os.tmpdir(), `ia_result_${Date.now()}.txt`);
     const script = `
-result=$(zenity --forms --title="Infinite Ask" \\
+result=$(zenity --forms --title="Windsurf Endless" \\
     --text="AI想要结束对话的原因：\\n${escapedReason}" \\
     --add-entry="输入新指令（可选）：" \\
     --ok-label="继续执行" \\
@@ -347,35 +351,47 @@ function handlePopupProcess(
 }
 
 // ==================== MCP Protocol ====================
+const TOOL_NAMES = {
+  checkpoint: 'session_checkpoint',
+  promptRefiner: 'prompt_refiner',
+  inputBridge: 'input_bridge',
+} as const;
+
+const LEGACY_TOOL_NAMES = {
+  checkpoint: ['windsurf-endless'],
+  promptRefiner: ['optimize_prompt'],
+  inputBridge: ['fill_cascade_input'],
+};
+
 const TOOLS: MCPTool[] = [
   {
-    name: 'infinite_dialog_feedback',
-    description: '当AI想要结束对话或任务时，必须调用此工具询问用户是否继续。',
+    name: TOOL_NAMES.checkpoint,
+    description: '在结束或暂停任务前向用户确认是否继续。',
     inputSchema: {
       type: 'object',
       properties: {
-        summary: { type: 'string', description: 'AI刚刚完成了什么（必填）' },
-        reason: { type: 'string', description: '结束原因' },
+        summary: { type: 'string', description: '刚刚完成的事项（必填）' },
+        reason: { type: 'string', description: '结束或暂停原因' },
         workspace: { type: 'string', description: '工作区路径' },
       },
       required: ['summary'],
     },
   },
   {
-    name: 'optimize_prompt',
-    description: '优化用户的提示词，使其更加清晰、具体、有效。第一步调用此工具获取优化后的提示词，第二步调用 fill_cascade_input 将结果填入输入框。',
+    name: TOOL_NAMES.promptRefiner,
+    description: `优化用户提示词，使其更清晰具体。先调用此工具获取优化结果，再调用 ${TOOL_NAMES.inputBridge} 填入输入框。`,
     inputSchema: {
       type: 'object',
       properties: {
         prompt: { type: 'string', description: '需要优化的原始提示词（必填）' },
-        optimized_prompt: { type: 'string', description: 'AI优化后的提示词（可选，如果提供则直接使用此优化结果）' },
+        optimized_prompt: { type: 'string', description: 'AI已给出的优化结果（可选）' },
       },
       required: ['prompt'],
     },
   },
   {
-    name: 'fill_cascade_input',
-    description: '将内容填入 Infinite Ask 对话框的自定义指令输入框中。通常与 optimize_prompt 配合使用，将优化后的提示词自动填入输入框。',
+    name: TOOL_NAMES.inputBridge,
+    description: '将指定内容填入自定义输入框，可与提示词优化结果联动。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -385,6 +401,18 @@ const TOOLS: MCPTool[] = [
     },
   },
 ];
+
+function isCheckpointTool(name: string): boolean {
+  return name === TOOL_NAMES.checkpoint || LEGACY_TOOL_NAMES.checkpoint.includes(name);
+}
+
+function isPromptRefinerTool(name: string): boolean {
+  return name === TOOL_NAMES.promptRefiner || LEGACY_TOOL_NAMES.promptRefiner.includes(name);
+}
+
+function isInputBridgeTool(name: string): boolean {
+  return name === TOOL_NAMES.inputBridge || LEGACY_TOOL_NAMES.inputBridge.includes(name);
+}
 
 function sendResponse(id: number, result: any): void {
   const response = { jsonrpc: '2.0', id, result };
@@ -396,10 +424,87 @@ function sendError(id: number, code: number, message: string): void {
   console.log(JSON.stringify(response));
 }
 
+/**
+ * Normalize MCP arguments to handle various input formats
+ * - Handles string JSON input
+ * - Handles nested 'input' or 'arguments' keys
+ * - Ensures we always return an object
+ */
+function normalizeArgs(args: any): Record<string, any> {
+  if (!args) {
+    log('DEBUG', 'normalizeArgs: args is null/undefined');
+    return {};
+  }
+
+  // If args is a string, try to parse it as JSON
+  if (typeof args === 'string') {
+    try {
+      const parsed = JSON.parse(args);
+      log('DEBUG', 'normalizeArgs: parsed string args', parsed);
+      return normalizeArgs(parsed);
+    }
+    catch {
+      log('DEBUG', 'normalizeArgs: args is non-JSON string');
+      return { content: args };
+    }
+  }
+
+  // If args is not an object, wrap it
+  if (typeof args !== 'object') {
+    log('DEBUG', 'normalizeArgs: args is not object, wrapping');
+    return { value: args };
+  }
+
+  // Handle MCP protocol variants where arguments might be nested
+  if (args.input && typeof args.input === 'object') {
+    log('DEBUG', 'normalizeArgs: found nested input key');
+    return { ...args, ...args.input };
+  }
+
+  if (args.arguments && typeof args.arguments === 'object') {
+    log('DEBUG', 'normalizeArgs: found nested arguments key');
+    return { ...args, ...args.arguments };
+  }
+
+  log('DEBUG', 'normalizeArgs: returning args as-is', args);
+  return args;
+}
+
 async function handleToolCall(name: string, args: any): Promise<any> {
-  if (name === 'infinite_dialog_feedback' || name.includes('infinite')) {
-    const summary = args.summary || args.reason || '任务已完成';
-    const result = await showLocalPopup(summary);
+  // Normalize arguments to handle various input formats
+  const normalizedArgs = normalizeArgs(args);
+  log('INFO', `handleToolCall: ${name}`, { original: args, normalized: normalizedArgs });
+
+  if (isCheckpointTool(name)) {
+    // Extract summary from various possible field names
+    const summary = normalizedArgs.summary
+      || normalizedArgs.message
+      || normalizedArgs.content
+      || normalizedArgs.text
+      || normalizedArgs.description
+      || '';
+
+    // Extract reason from various possible field names
+    const reason = normalizedArgs.reason
+      || normalizedArgs.stop_reason
+      || normalizedArgs.explanation
+      || '';
+
+    // Use meaningful defaults only when both are empty
+    const displaySummary = summary || reason || '任务已完成';
+    const displayReason = reason || '';
+
+    log('INFO', `${TOOL_NAMES.checkpoint} called`, {
+      summary: displaySummary,
+      reason: displayReason,
+      rawArgs: normalizedArgs,
+    });
+
+    const result = await showLocalPopup({
+      summary: displaySummary,
+      reason: displayReason,
+    });
+
     let responseText = `结果: should_continue=${result.shouldContinue}`;
     if (result.shouldContinue && result.userInstruction) {
       responseText += `\n用户指令: ${result.userInstruction}`;
@@ -407,9 +512,9 @@ async function handleToolCall(name: string, args: any): Promise<any> {
     return { content: [{ type: 'text', text: responseText }] };
   }
 
-  if (name === 'optimize_prompt') {
-    const prompt = args.prompt;
-    const optimizedPrompt = args.optimized_prompt;
+  if (isPromptRefinerTool(name)) {
+    const prompt = normalizedArgs.prompt;
+    const optimizedPrompt = normalizedArgs.optimized_prompt;
 
     if (!prompt) {
       return { content: [{ type: 'text', text: '错误: 请提供需要优化的提示词 (prompt 参数)' }] };
@@ -421,7 +526,7 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       return {
         content: [{
           type: 'text',
-          text: `优化成功！\n\n优化后的提示词：\n${optimizedPrompt}\n\n提示：请调用 fill_cascade_input 工具将此提示词填入输入框。`,
+          text: `优化成功！\n\n优化后的提示词：\n${optimizedPrompt}\n\n提示：请调用 ${TOOL_NAMES.inputBridge} 工具将此提示词填入输入框。`,
         }],
       };
     }
@@ -432,7 +537,7 @@ async function handleToolCall(name: string, args: any): Promise<any> {
       return {
         content: [{
           type: 'text',
-          text: `请你直接优化以下提示词，优化后调用此工具时在 optimized_prompt 参数中提供优化结果，然后调用 fill_cascade_input 填入输入框。\n\n需要优化的原始提示词：\n${prompt}\n\n优化要求：\n1. 保持原始意图不变\n2. 使表达更加清晰具体\n3. 添加必要的上下文和约束\n4. 使用更专业的措辞\n5. 保持简洁`,
+          text: `请你直接优化以下提示词，优化后调用此工具时在 optimized_prompt 参数中提供优化结果，然后调用 ${TOOL_NAMES.inputBridge} 填入输入框。\n\n需要优化的原始提示词：\n${prompt}\n\n优化要求：\n1. 保持原始意图不变\n2. 使表达更加清晰具体\n3. 添加必要的上下文和约束\n4. 使用更专业的措辞\n5. 保持简洁`,
         }],
       };
     }
@@ -445,7 +550,7 @@ async function handleToolCall(name: string, args: any): Promise<any> {
         return {
           content: [{
             type: 'text',
-            text: `优化成功！\n\n优化后的提示词：\n${result.optimizedPrompt}\n\n提示：你可以调用 fill_cascade_input 工具将此提示词填入输入框。`,
+            text: `优化成功！\n\n优化后的提示词：\n${result.optimizedPrompt}\n\n提示：你可以调用 ${TOOL_NAMES.inputBridge} 工具将此提示词填入输入框。`,
           }],
         };
       }
@@ -462,8 +567,8 @@ async function handleToolCall(name: string, args: any): Promise<any> {
     }
   }
 
-  if (name === 'fill_cascade_input') {
-    const content = args.content;
+  if (isInputBridgeTool(name)) {
+    const content = normalizedArgs.content;
     if (!content) {
       return { content: [{ type: 'text', text: '错误: 请提供要填入的内容 (content 参数)' }] };
     }
@@ -499,7 +604,7 @@ async function handleRequest(request: MCPRequest): Promise<void> {
       case 'initialize':
         sendResponse(id!, {
           protocolVersion: '2024-11-05',
-          serverInfo: { name: 'infinite_ask', version: VERSION },
+          serverInfo: { name: 'windsurf-endless', version: VERSION },
           capabilities: { tools: {} },
         });
         break;
@@ -528,7 +633,7 @@ async function handleRequest(request: MCPRequest): Promise<void> {
 }
 
 // ==================== HTTP Transport ====================
-const HTTP_PORT = Number.parseInt(process.env.MCP_HTTP_PORT || '3456', 10);
+const HTTP_PORT = Number.parseInt(process.env.MCP_HTTP_PORT || '6000', 10);
 
 interface SSEClient {
   id: string;
@@ -634,7 +739,7 @@ async function handleRequestWithResponse(request: MCPRequest): Promise<any> {
           id,
           result: {
             protocolVersion: '2024-11-05',
-            serverInfo: { name: 'infinite_ask', version: VERSION },
+            serverInfo: { name: 'windsurf-endless', version: VERSION },
             capabilities: { tools: {} },
           },
         };
@@ -679,7 +784,7 @@ export function startHTTPServer(port: number = HTTP_PORT): Promise<void> {
 
     httpServer.listen(port, '127.0.0.1', () => {
       log('INFO', `MCP HTTP server listening on http://127.0.0.1:${port}`);
-      console.error(`[infinite_ask] HTTP server started on port ${port}`);
+      console.error(`[windsurf-endless] HTTP server started on port ${port}`);
       resolve();
     });
   });

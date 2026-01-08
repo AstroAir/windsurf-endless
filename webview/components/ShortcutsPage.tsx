@@ -335,7 +335,7 @@ export function ShortcutsPage({ onUseShortcut }: ShortcutsPageProps) {
               {editingShortcut ? '编辑快捷指令' : '新建快捷指令'}
             </DialogTitle>
             <DialogDescription>
-              创建快捷指令，在 Infinite Ask 对话框中快速使用
+              创建快捷指令，在 Windsurf Endless 对话框中快速使用
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">

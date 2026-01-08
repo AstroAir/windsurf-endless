@@ -87,7 +87,7 @@ function Dashboard() {
               <Sparkles className="size-5" />
               MCP 服务状态
             </CardTitle>
-            <CardDescription>检查 Infinite Ask MCP 服务连接状态</CardDescription>
+            <CardDescription>检查 Windsurf Endless MCP 服务连接状态</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3 rounded-lg bg-muted p-4">
@@ -207,11 +207,22 @@ function Dashboard() {
 function AppContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
   const [activeTab, setActiveTab] = useState('home');
+  const [infiniteAskData, setInfiniteAskData] = useState<{ reason?: string; summary?: string; workspacePath?: string; panelId?: string } | null>(null);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'infinite_ask_request') {
+        const data = message.data || {};
+        console.log('[AppContent] Received infinite_ask_request:', data);
+
+        // Store the data for passing to InfiniteAskPage
+        setInfiniteAskData({
+          reason: data.reason || data.stop_reason || data.explanation || '',
+          summary: data.summary || data.message || data.content || data.text || '',
+          workspacePath: data.workspacePath || '',
+          panelId: data.panelId || '',
+        });
         setViewMode('infinite_ask');
       }
     };
@@ -220,9 +231,9 @@ function AppContent() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // Show Infinite Ask dialog when requested
+  // Show Windsurf Endless dialog when requested
   if (viewMode === 'infinite_ask') {
-    return <InfiniteAskPage />;
+    return <InfiniteAskPage initialData={infiniteAskData} />;
   }
 
   return (
@@ -232,7 +243,7 @@ function AppContent() {
         <InfinityIcon className="size-8 text-primary" />
         <div>
           <h1 className="text-2xl font-bold">Windsurf Endless</h1>
-          <p className="text-sm text-muted-foreground">Infinite Ask - 无限对话扩展</p>
+          <p className="text-sm text-muted-foreground">Windsurf Endless - 无限对话扩展</p>
         </div>
         <Badge className="ml-auto" variant="outline">v1.0.0</Badge>
       </div>

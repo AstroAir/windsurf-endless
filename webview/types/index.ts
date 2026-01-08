@@ -191,17 +191,22 @@ export interface AppState {
   history: HistoryItem[];
   activeConversationId: string | null;
   activeSessionId: string | null;
+  workspacePath?: string;
 }
 
 // Message types for communication
 export type MessageType
-  = | 'get_settings'
+  = | 'webview_ready'
+    | 'state_sync'
+    | 'get_settings'
     | 'save_settings'
     | 'get_conversations'
     | 'create_conversation'
+    | 'update_conversation'
     | 'delete_conversation'
     | 'switch_conversation'
     | 'get_history'
+    | 'add_history_item'
     | 'clear_history'
     | 'delete_history_item'
     | 'export_history'

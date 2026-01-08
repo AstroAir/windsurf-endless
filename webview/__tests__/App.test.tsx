@@ -17,7 +17,7 @@ describe('app', () => {
 
   it('renders the subtitle', () => {
     render(<App />);
-    expect(screen.getByText('Infinite Ask - 无限对话扩展')).toBeInTheDocument();
+    expect(screen.getByText('Windsurf Endless - 无限对话扩展')).toBeInTheDocument();
   });
 
   it('renders MCP status card', () => {

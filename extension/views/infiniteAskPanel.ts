@@ -1,9 +1,10 @@
 /**
- * Infinite Ask Panel
- * Webview panel for displaying the infinite ask dialog
+ * Windsurf Endless Panel
+ * Webview panel for displaying the Windsurf Endless dialog
+ * Supports multiple concurrent panels
  */
 
-import { ViewColumn, window } from 'vscode';
+import { ViewColumn, window, workspace } from 'vscode';
 
 import { isWindsurfEnvironment, optimizePrompt } from '../services/promptOptimizer';
 
@@ -17,37 +18,81 @@ export interface InfiniteAskResult {
   images?: Array<{ id: string; dataUrl: string; name: string }>;
 }
 
+interface PanelInfo {
+  panel: InfiniteAskPanel;
+  resolvePromise: ((result: InfiniteAskResult) => void) | null;
+}
+
 export class InfiniteAskPanel {
-  public static currentPanel: InfiniteAskPanel | undefined;
+  // Support multiple panels with unique IDs
+  private static panels: Map<string, PanelInfo> = new Map();
+  private static panelCounter = 0;
+
   private readonly _panel: WebviewPanel;
+  private readonly _panelId: string;
   private _disposables: Disposable[] = [];
   private _resolvePromise: ((result: InfiniteAskResult) => void) | null = null;
 
   /**
-   * Fill content into the Infinite Ask dialog's custom instruction input box
-   * Returns true if panel is open and content was sent
+   * Get the most recently created panel (for backward compatibility)
    */
-  public static async fillInput(content: string): Promise<boolean> {
-    if (InfiniteAskPanel.currentPanel) {
+  public static get currentPanel(): InfiniteAskPanel | undefined {
+    if (InfiniteAskPanel.panels.size === 0) {
+      return undefined;
+    }
+    const lastEntry = Array.from(InfiniteAskPanel.panels.values()).pop();
+    return lastEntry?.panel;
+  }
+
+  /**
+   * Get all active panel IDs
+   */
+  public static getActivePanelIds(): string[] {
+    return Array.from(InfiniteAskPanel.panels.keys());
+  }
+
+  /**
+   * Get panel by ID
+   */
+  public static getPanelById(id: string): InfiniteAskPanel | undefined {
+    return InfiniteAskPanel.panels.get(id)?.panel;
+  }
+
+  /**
+   * Fill content into a specific panel's custom instruction input box
+   * If panelId is not provided, fills the most recent panel
+   */
+  public static async fillInput(content: string, panelId?: string): Promise<boolean> {
+    let targetPanel: InfiniteAskPanel | undefined;
+
+    if (panelId) {
+      targetPanel = InfiniteAskPanel.getPanelById(panelId);
+    }
+    else {
+      targetPanel = InfiniteAskPanel.currentPanel;
+    }
+
+    if (targetPanel) {
       console.log('[InfiniteAskPanel] Sending fill_input message with content length:', content.length);
-      // Give webview a moment to be ready
       await new Promise(resolve => setTimeout(resolve, 100));
-      InfiniteAskPanel.currentPanel._panel.webview.postMessage({
+      targetPanel._panel.webview.postMessage({
         type: 'fill_input',
         data: { content },
       });
       return true;
     }
-    console.log('[InfiniteAskPanel] No current panel, cannot fill input');
+    console.log('[InfiniteAskPanel] No target panel found, cannot fill input');
     return false;
   }
 
-  private constructor(panel: WebviewPanel, context: ExtensionContext) {
+  private constructor(panel: WebviewPanel, context: ExtensionContext, panelId: string) {
     this._panel = panel;
+    this._panelId = panelId;
 
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.html = WebviewHelper.setupHtml(this._panel.webview, context);
 
+    WebviewHelper.setupWebviewHooks(this._panel.webview, this._disposables, context);
     this._setupMessageHandler();
   }
 
@@ -113,7 +158,7 @@ export class InfiniteAskPanel {
           const prompt = message.data?.prompt;
           if (prompt) {
             // 构建让AI优化提示词的指令
-            const optimizeInstruction = `请帮我优化以下提示词，使其更加清晰、具体、有效。优化完成后，请调用 fill_cascade_input 工具将优化后的提示词填入输入框。
+            const optimizeInstruction = `请帮我优化以下提示词，使其更加清晰、具体、有效。优化完成后，请调用 input_bridge 工具将优化后的提示词填入输入框。
 
 需要优化的原始提示词：
 ${prompt}
@@ -145,28 +190,41 @@ ${prompt}
   }
 
   /**
-   * Show the infinite ask dialog and wait for user response
+   * Show the Windsurf Endless dialog and wait for user response
+   * Creates a new panel for each call, allowing multiple concurrent dialogs
    */
   public static async show(
     context: ExtensionContext,
     data: { reason?: string; summary?: string },
   ): Promise<InfiniteAskResult> {
-    // If panel already exists, dispose it first
-    if (InfiniteAskPanel.currentPanel) {
-      InfiniteAskPanel.currentPanel.dispose();
-    }
+    // Generate unique panel ID
+    const panelId = `infinite-ask-${++InfiniteAskPanel.panelCounter}-${Date.now()}`;
+    const panelCount = InfiniteAskPanel.panels.size + 1;
+
+    // Create title with counter if multiple panels
+    const title = panelCount > 1
+      ? `Windsurf Endless #${panelCount} - 确认继续`
+      : 'Windsurf Endless - 确认继续';
 
     const panel = window.createWebviewPanel(
       'infiniteAsk',
-      'Infinite Ask - 确认继续',
-      ViewColumn.Active,
+      title,
+      ViewColumn.Beside, // Use Beside to avoid replacing existing panels
       {
         enableScripts: true,
         retainContextWhenHidden: true,
       },
     );
 
-    InfiniteAskPanel.currentPanel = new InfiniteAskPanel(panel, context);
+    const infiniteAskPanel = new InfiniteAskPanel(panel, context, panelId);
+
+    // Register in panels map
+    InfiniteAskPanel.panels.set(panelId, {
+      panel: infiniteAskPanel,
+      resolvePromise: null,
+    });
+
+    console.log(`[InfiniteAskPanel] Created new panel: ${panelId}, total panels: ${InfiniteAskPanel.panels.size}`);
 
     // Wait a bit for webview to load, then send the request
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -174,24 +232,34 @@ ${prompt}
     // Send request to webview
     panel.webview.postMessage({
       type: 'infinite_ask_request',
-      data,
+      data: {
+        ...data,
+        workspacePath: workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
+        panelId, // Include panelId for tracking
+      },
     });
 
     // Return a promise that resolves when user responds
     return new Promise<InfiniteAskResult>((resolve) => {
-      InfiniteAskPanel.currentPanel!._resolvePromise = resolve;
+      infiniteAskPanel._resolvePromise = resolve;
+
+      // Update panels map
+      const panelInfo = InfiniteAskPanel.panels.get(panelId);
+      if (panelInfo) {
+        panelInfo.resolvePromise = resolve;
+      }
 
       // Set a long timeout (24 hours)
       const timeout = setTimeout(() => {
-        if (InfiniteAskPanel.currentPanel?._resolvePromise) {
+        if (infiniteAskPanel._resolvePromise) {
           resolve({ shouldContinue: false });
-          InfiniteAskPanel.currentPanel?.dispose();
+          infiniteAskPanel.dispose();
         }
       }, 24 * 60 * 60 * 1000);
 
       // Clear timeout when resolved
-      const originalResolve = InfiniteAskPanel.currentPanel!._resolvePromise;
-      InfiniteAskPanel.currentPanel!._resolvePromise = (result) => {
+      const originalResolve = infiniteAskPanel._resolvePromise;
+      infiniteAskPanel._resolvePromise = (result) => {
         clearTimeout(timeout);
         originalResolve(result);
       };
@@ -202,7 +270,9 @@ ${prompt}
    * Dispose the panel
    */
   public dispose() {
-    InfiniteAskPanel.currentPanel = undefined;
+    // Remove from panels map
+    InfiniteAskPanel.panels.delete(this._panelId);
+    console.log(`[InfiniteAskPanel] Disposed panel: ${this._panelId}, remaining panels: ${InfiniteAskPanel.panels.size}`);
 
     // If there's a pending promise, resolve with shouldContinue: false
     if (this._resolvePromise) {

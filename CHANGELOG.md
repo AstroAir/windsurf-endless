@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- Markdown rendering support for MCP inputs (summary and reason fields)
+- New `MarkdownRenderer` component with GitHub Flavored Markdown support
+- Support for formatted content in AI responses including headers, lists, code blocks, tables, etc.
+- Dependencies: react-markdown, remark-gfm, rehype-raw
+
+### Changed
+
+- Updated `InfiniteAskDialog` to render summary and reason fields as Markdown instead of plain text
+
+### Documentation
+
+- Added MCP_MARKDOWN_SUPPORT.md with feature details and usage examples
+
+## [Previous]
+
+### Added
+
 - Initial project setup with React 19 + shadcn/ui + Tailwind CSS v4
 - VSCode extension webview panel
 - Hot Module Replacement (HMR) support for development
@@ -19,23 +37,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GitHub Actions CI workflow
 
 ### Changed
+
 - N/A
 
 ### Deprecated
+
 - N/A
 
 ### Removed
+
 - N/A
 
 ### Fixed
+
 - N/A
 
 ### Security
+
 - N/A
 
 ## [0.0.1] - 2024-01-01
 
 ### Added
+
 - Initial release
 - Basic webview panel with React
 - Message passing between extension and webview

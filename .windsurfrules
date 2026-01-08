@@ -1,19 +1,19 @@
-# Infinite Ask - Continuous Conversation Rules
+# Windsurf Endless - Continuous Conversation Rules
 
 ## Primary Rule
 
-**ALWAYS call infinite_dialog_feedback at the end of EVERY response. No exceptions.**
+**ALWAYS call windsurf_endless_feedback at the end of EVERY response. No exceptions.**
 
 ## Core Behavior
 
 1. **Complete the task** fully and thoroughly
-2. **Call infinite_dialog_feedback** to ask if user wants to continue
+2. **Call windsurf_endless_feedback** to ask if user wants to continue
 3. **Wait patiently** for user response (system will wait up to 24 hours)
-4. **Never call infinite_dialog_feedback again** while waiting
+4. **Never call windsurf_endless_feedback again** while waiting
 
 ## Critical: Wait After Calling
 
-After you call infinite_dialog_feedback:
+After you call windsurf_endless_feedback:
 
 1. **Your job is done** - You have asked the user
 2. **System is waiting** - The dialog box is open
@@ -32,7 +32,7 @@ After you call infinite_dialog_feedback:
 
 ### What NOT to Do
 
-- Do NOT call infinite_dialog_feedback again because:
+- Do NOT call windsurf_endless_feedback again because:
   - "No response received"
   - "User hasn't replied yet"
   - "Waiting too long"
@@ -45,20 +45,20 @@ After you call infinite_dialog_feedback:
 
 **Instead: Trust the system. It's waiting. You wait too.**
 
-## When to Call infinite_dialog_feedback
+## When to Call windsurf_endless_feedback
 
-Call infinite_dialog_feedback in these situations:
+Call windsurf_endless_feedback in these situations:
 
 ### 1. Task Completed
 
 ```
 Task completed successfully.
-[Call infinite_dialog_feedback with summary: "Task completed"]
+[Call windsurf_endless_feedback with summary: "Task completed"]
 ```
 
 ### 2. User Cancelled Command (CRITICAL)
 
-**When user cancels your command, IMMEDIATELY call infinite_dialog_feedback.**
+**When user cancels your command, IMMEDIATELY call windsurf_endless_feedback.**
 
 This means:
 
@@ -70,7 +70,7 @@ This means:
 
 **When you don't know what to do, ASK instead of guessing.**
 
-Call infinite_dialog_feedback when:
+Call windsurf_endless_feedback when:
 
 - You're not sure which approach to take
 - The requirement is ambiguous
@@ -81,14 +81,14 @@ Call infinite_dialog_feedback when:
 
 ```
 Found two approaches, need user to choose.
-[Call infinite_dialog_feedback with summary: "Need user decision on approach"]
+[Call windsurf_endless_feedback with summary: "Need user decision on approach"]
 ```
 
 ### 5. Encountered Error
 
 ```
 Error: Cannot connect to database.
-[Call infinite_dialog_feedback with summary: "Error encountered - need guidance"]
+[Call windsurf_endless_feedback with summary: "Error encountered - need guidance"]
 ```
 
 ## Tool Call Format
@@ -107,12 +107,12 @@ Every response should end with:
 
 ```
 [Summary of work done]
-[Call infinite_dialog_feedback]
+[Call windsurf_endless_feedback]
 ```
 
 ## After User Responds
 
-When user responds to infinite_dialog_feedback:
+When user responds to windsurf_endless_feedback:
 
 ### If should_continue = true
 
@@ -136,7 +136,7 @@ When user responds to infinite_dialog_feedback:
 ## Summary
 
 1. Complete task
-2. Call infinite_dialog_feedback (once)
+2. Call windsurf_endless_feedback (once)
 3. Wait (system handles this)
 4. Respond to user's choice
 

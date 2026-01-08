@@ -144,7 +144,7 @@ export function StatsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalHistoryItems}</div>
-            <p className="text-xs text-muted-foreground">次 Infinite Ask</p>
+            <p className="text-xs text-muted-foreground">次 Windsurf Endless</p>
           </CardContent>
         </Card>
 
@@ -172,7 +172,7 @@ export function StatsPage() {
               <Calendar className="size-5" />
               7天活动趋势
             </CardTitle>
-            <CardDescription>最近7天的 Infinite Ask 使用情况</CardDescription>
+            <CardDescription>最近7天的 Windsurf Endless 使用情况</CardDescription>
           </CardHeader>
           <CardContent>
             {activityData.some(d => d.total > 0)

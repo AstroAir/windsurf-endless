@@ -9,7 +9,7 @@ import { MainPanel } from './views/panel';
 import type { ExtensionContext } from 'vscode';
 
 export function activate(context: ExtensionContext) {
-  console.log('Windsurf Endless (Infinite Ask) is now active!');
+  console.log('Windsurf Endless is now active!');
 
   // Detect and set environment configuration
   const isWindsurf = isWindsurfEnvironment();
@@ -44,10 +44,10 @@ export function activate(context: ExtensionContext) {
   });
 
   // Set up fill input handler for MCP server
-  // This fills the Infinite Ask dialog input if open, otherwise uses clipboard
+  // This fills the Windsurf Endless dialog input if open, otherwise uses clipboard
   setFillInputHandler(async (request) => {
     try {
-      // First, try to fill the Infinite Ask dialog if it's open
+      // First, try to fill the Windsurf Endless dialog if it's open
       const filledDialog = await InfiniteAskPanel.fillInput(request.content);
 
       if (filledDialog) {
@@ -80,8 +80,8 @@ export function activate(context: ExtensionContext) {
   });
 
   // Start HTTP MCP server for HTTP transport mode
-  startHTTPServer(3456).then(() => {
-    console.log('MCP HTTP server started on port 3456');
+  startHTTPServer(6000).then(() => {
+    console.log('MCP HTTP server started on port 6000');
   }).catch((error) => {
     console.error('Failed to start MCP HTTP server:', error);
   });
@@ -104,11 +104,11 @@ export function activate(context: ExtensionContext) {
       window.showInformationMessage('Windsurf Endless: Configuration updated successfully!');
     }),
 
-    // Show infinite ask dialog (for testing)
+    // Show Windsurf Endless dialog (for testing)
     commands.registerCommand('windsurf-endless.showInfiniteAsk', async () => {
       const result = await InfiniteAskPanel.show(context, {
         summary: '测试对话框',
-        reason: '这是一个测试消息，用于验证 Infinite Ask 功能是否正常工作。',
+        reason: '这是一个测试消息，用于验证 Windsurf Endless 功能是否正常工作。',
       });
 
       if (result.shouldContinue) {

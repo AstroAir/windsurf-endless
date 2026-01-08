@@ -106,7 +106,7 @@ export function SettingsPage() {
             <Clock className="size-5" />
             对话框设置
           </CardTitle>
-          <CardDescription>配置 Infinite Ask 对话框的行为</CardDescription>
+          <CardDescription>配置 Windsurf Endless 对话框的行为</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-3">
@@ -224,7 +224,7 @@ export function SettingsPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>保存历史记录</Label>
-              <p className="text-sm text-muted-foreground">记录所有 Infinite Ask 交互</p>
+              <p className="text-sm text-muted-foreground">记录所有 Windsurf Endless 交互</p>
             </div>
             <Switch
               checked={settings.saveHistory}

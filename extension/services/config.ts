@@ -46,8 +46,8 @@ export function configureMCP(context: vscode.ExtensionContext): void {
 
       const config = {
         mcpServers: {
-          'infinite-dialog': {
-            url: 'http://127.0.0.1:3456/sse',
+          'windsurf-endless': {
+            url: 'http://127.0.0.1:6000/sse',
           },
         },
       };
@@ -79,8 +79,8 @@ function updateMCPConfig(configPath: string, _serverScriptPath: string): void {
     }
 
     // Add HTTP/SSE configuration (connects to extension's HTTP server)
-    config.mcpServers['infinite-dialog'] = {
-      url: 'http://127.0.0.1:3456/sse',
+    config.mcpServers['windsurf-endless'] = {
+      url: 'http://127.0.0.1:6000/sse',
     };
 
     fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
@@ -158,14 +158,14 @@ export function removeMCPConfig(): void {
         }
 
         // Remove HTTP/SSE config
-        if (config.mcpServers?.['infinite-dialog']) {
-          delete config.mcpServers['infinite-dialog'];
+        if (config.mcpServers?.['windsurf-endless']) {
+          delete config.mcpServers['windsurf-endless'];
           modified = true;
         }
 
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
-          console.log(`Removed infinite-dialog config from: ${configPath}`);
+          console.log(`Removed windsurf-endless config from: ${configPath}`);
         }
       }
       catch (e) {

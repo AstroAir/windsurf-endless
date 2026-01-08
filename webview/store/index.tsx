@@ -2,7 +2,7 @@
  * State management for Windsurf Endless
  */
 
-import { createContext, useContext, useEffect, useReducer } from 'react';
+import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
 
 import { defaultSettings } from '../types';
 import { vscode } from '../utils/vscode';
@@ -23,6 +23,7 @@ const initialState: AppState = {
   history: [],
   activeConversationId: null,
   activeSessionId: null,
+  workspacePath: '',
 };
 
 type Action
@@ -96,6 +97,7 @@ interface AppContextType {
   dispatch: React.Dispatch<Action>;
   saveSettings: (settings: Partial<Settings>) => void;
   createConversation: (name: string, workspacePath: string) => Conversation;
+  updateConversation: (id: string, updates: Partial<Conversation>) => void;
   deleteConversation: (id: string) => void;
   switchConversation: (id: string) => void;
   addHistoryItem: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => void;
@@ -111,6 +113,11 @@ interface AppProviderProps {
 
 export function AppProvider({ children }: AppProviderProps) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const stateRef = useRef(state);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const savedState = vscode.getState();
@@ -122,16 +129,23 @@ export function AppProvider({ children }: AppProviderProps) {
     const handleMessage = (event: MessageEvent) => {
       const message = event.data;
       if (message.type === 'request_export_data') {
-        vscode.postMessage({ type: 'export_data_response', data: state });
+        vscode.postMessage({ type: 'export_data_response', data: stateRef.current });
       }
       else if (message.type === 'import_data_response') {
         dispatch({ type: 'LOAD_STATE', payload: message.data });
       }
+      else if (message.type === 'state_sync') {
+        dispatch({ type: 'LOAD_STATE', payload: message.data as Partial<AppState> });
+      }
     };
 
     window.addEventListener('message', handleMessage);
+
+    // Request initial state from extension host
+    vscode.postMessage({ type: 'webview_ready' });
+
     return () => window.removeEventListener('message', handleMessage);
-  }, [state]);
+  }, []);
 
   useEffect(() => {
     vscode.setState(state);
@@ -146,7 +160,7 @@ export function AppProvider({ children }: AppProviderProps) {
     const conversation: Conversation = {
       id: `conv-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       name,
-      workspacePath,
+      workspacePath: workspacePath || state.workspacePath || '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       messages: [],
@@ -156,6 +170,11 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch({ type: 'SET_ACTIVE_CONVERSATION', payload: conversation.id });
     vscode.postMessage({ type: 'create_conversation', data: conversation });
     return conversation;
+  };
+
+  const updateConversation = (id: string, updates: Partial<Conversation>) => {
+    dispatch({ type: 'UPDATE_CONVERSATION', payload: { id, updates } });
+    vscode.postMessage({ type: 'update_conversation', data: { id, updates } });
   };
 
   const deleteConversation = (id: string) => {
@@ -175,6 +194,7 @@ export function AppProvider({ children }: AppProviderProps) {
       timestamp: Date.now(),
     };
     dispatch({ type: 'ADD_HISTORY_ITEM', payload: historyItem });
+    vscode.postMessage({ type: 'add_history_item', data: historyItem });
   };
 
   const clearHistory = () => {
@@ -192,6 +212,7 @@ export function AppProvider({ children }: AppProviderProps) {
     dispatch,
     saveSettings,
     createConversation,
+    updateConversation,
     deleteConversation,
     switchConversation,
     addHistoryItem,
@@ -220,7 +241,7 @@ export function useSettings() {
 }
 
 export function useConversations() {
-  const { state, createConversation, deleteConversation, switchConversation } = useApp();
+  const { state, createConversation, deleteConversation, switchConversation, updateConversation } = useApp();
   const activeConversation = state.conversations.find(c => c.id === state.activeConversationId);
   return {
     conversations: state.conversations,
@@ -229,6 +250,7 @@ export function useConversations() {
     createConversation,
     deleteConversation,
     switchConversation,
+    updateConversation,
   };
 }
 
