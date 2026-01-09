@@ -9,4 +9,4 @@ export { connectionMonitor, ConnectionMonitor } from './connectionMonitor';
 export type { ConnectionChangeCallback } from './connectionMonitor';
 
 export { promptManager, PromptManager } from './promptManager';
-export { sessionManager, SessionManager } from './sessionManager';
+export { createSessionManager, sessionManager, SessionManager } from './sessionManager';

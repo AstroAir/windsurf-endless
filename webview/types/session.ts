@@ -113,6 +113,23 @@ export interface SessionExportOptions {
   sessionIds?: string[];
 }
 
+// Transport type for MCP connection
+export type TransportType = 'http' | 'stdio' | 'auto';
+
+// Connection mode for configuration
+export type ConnectionMode = 'simple' | 'advanced';
+
+// Server state
+export interface ServerState {
+  isRunning: boolean;
+  transport: TransportType;
+  port: number;
+  uptime: number; // in seconds
+  clientCount: number;
+  startedAt?: number;
+  error?: string;
+}
+
 // Connection monitoring
 export interface ConnectionState {
   status: ConnectionStatus;
@@ -121,6 +138,8 @@ export interface ConnectionState {
   reconnectAttempts: number;
   qualityScore: number; // 0-100
   error?: string;
+  transport: TransportType; // Current transport type
+  serverState?: ServerState; // Server state from extension
 }
 
 // Auto-submit settings

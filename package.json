@@ -25,6 +25,24 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "windsurf-endless-sidebar",
+          "title": "Windsurf Endless",
+          "icon": "assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "windsurf-endless-sidebar": [
+        {
+          "type": "webview",
+          "id": "windsurf-endless.sidebarView",
+          "name": "控制面板"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "windsurf-endless.showPanel",
@@ -41,6 +59,10 @@
       {
         "command": "windsurf-endless.removeConfig",
         "title": "Windsurf Endless: Remove MCP Configuration"
+      },
+      {
+        "command": "windsurf-endless.focusSidebar",
+        "title": "Windsurf Endless: Focus Sidebar Panel"
       }
     ]
   },

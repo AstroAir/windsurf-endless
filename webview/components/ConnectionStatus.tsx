@@ -1,6 +1,7 @@
 /**
  * Connection Status Indicator
  * Shows MCP server connection status with real-time updates
+ * Supports HTTP and Stdio transport types
  */
 
 import {
@@ -8,8 +9,11 @@ import {
   CheckCircle,
   Loader2,
   RefreshCw,
+  Server,
+  Terminal,
   Wifi,
   WifiOff,
+  Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -20,6 +24,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Separator } from '@/components/ui/separator';
 import {
   Tooltip,
   TooltipContent,
@@ -28,8 +33,9 @@ import {
 } from '@/components/ui/tooltip';
 
 import { connectionMonitor } from '../lib/connectionMonitor';
+import { vscode } from '../utils/vscode';
 
-import type { ConnectionState, ConnectionStatus as ConnectionStatusType } from '../types/session';
+import type { ConnectionState, ConnectionStatus as ConnectionStatusType, ServerState, TransportType } from '../types/session';
 
 interface ConnectionStatusProps {
   compact?: boolean;
@@ -50,19 +56,63 @@ const statusColors: Record<ConnectionStatusType, string> = {
   error: 'bg-red-500',
 };
 
+const transportIcons: Record<TransportType, React.ReactNode> = {
+  http: <Wifi className="size-3" />,
+  stdio: <Terminal className="size-3" />,
+  auto: <Zap className="size-3" />,
+};
+
+function formatUptime(seconds: number): string {
+  if (seconds < 60)
+    return `${seconds}秒`;
+  if (seconds < 3600)
+    return `${Math.floor(seconds / 60)}分钟`;
+  if (seconds < 86400)
+    return `${Math.floor(seconds / 3600)}小时`;
+  return `${Math.floor(seconds / 86400)}天`;
+}
+
 export function ConnectionStatus({ compact = false, showDetails = true }: ConnectionStatusProps) {
   const [state, setState] = useState<ConnectionState>(connectionMonitor.getState());
+  const [serverState, setServerState] = useState<ServerState | null>(null);
 
   useEffect(() => {
     connectionMonitor.start();
     const unsubscribe = connectionMonitor.subscribe(setState);
+
+    // Listen for server state updates from extension
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'server_state_update') {
+        setServerState(message.data);
+        // Update connection monitor with server state
+        if (message.data.isRunning) {
+          connectionMonitor.updateFromExtension('connected', message.data.latency || state.latency);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Request initial server state
+    vscode.postMessage({ type: 'get_server_state' });
+
     return () => {
       unsubscribe();
+      window.removeEventListener('message', handleMessage);
     };
   }, []);
 
   const handleReconnect = () => {
     connectionMonitor.forceReconnect();
+    vscode.postMessage({ type: 'get_server_state' });
+  };
+
+  const handleRestartServer = () => {
+    vscode.postMessage({
+      type: 'restart_server',
+      data: { port: serverState?.port },
+    });
   };
 
   const getQualityBars = () => {
@@ -76,14 +126,17 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
     return bars;
   };
 
+  const currentTransport = serverState?.transport || state.transport || 'http';
+
   // Compact mode - just an icon with tooltip
   if (compact) {
     return (
       <TooltipProvider delayDuration={0}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1 cursor-default">
+            <div className="flex items-center gap-1.5 cursor-default">
               <span className={`size-2 rounded-full ${statusColors[state.status]}`} />
+              {transportIcons[currentTransport]}
               {state.status === 'connected' && (
                 <span className="text-xs text-muted-foreground font-mono">
                   {state.latency}
@@ -93,7 +146,15 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
             </div>
           </TooltipTrigger>
           <TooltipContent>
-            <p>{connectionMonitor.getStatusText()}</p>
+            <div className="space-y-1">
+              <p>{connectionMonitor.getStatusText()}</p>
+              <p className="text-xs opacity-70">
+                传输:
+                {' '}
+                {currentTransport.toUpperCase()}
+                {serverState?.port && currentTransport !== 'stdio' && ` (端口: ${serverState.port})`}
+              </p>
+            </div>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -109,6 +170,11 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
           <span className="text-xs">
             {state.status === 'connected' ? `${state.latency}ms` : connectionMonitor.getStatusText()}
           </span>
+          {/* Transport indicator */}
+          <Badge variant="outline" className="gap-1 h-5 px-1.5 text-xs">
+            {transportIcons[currentTransport]}
+            {currentTransport.toUpperCase()}
+          </Badge>
           {/* Quality bars */}
           {state.status === 'connected' && (
             <div className="flex items-end gap-0.5 h-3">
@@ -126,12 +192,12 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
         </Button>
       </PopoverTrigger>
       {showDetails && (
-        <PopoverContent className="w-64" align="end">
+        <PopoverContent className="w-72" align="end">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Wifi className="size-4" />
-                <span className="font-medium text-sm">连接状态</span>
+                <Server className="size-4" />
+                <span className="font-medium text-sm">MCP 服务器</span>
               </div>
               <Badge
                 variant={state.status === 'connected' ? 'default' : 'secondary'}
@@ -141,6 +207,44 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
                 {connectionMonitor.getStatusText()}
               </Badge>
             </div>
+
+            {/* Server Info */}
+            {serverState && (
+              <>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-muted rounded p-2">
+                    <div className="text-muted-foreground">传输方式</div>
+                    <div className="font-medium flex items-center gap-1">
+                      {transportIcons[serverState.transport]}
+                      {serverState.transport.toUpperCase()}
+                    </div>
+                  </div>
+                  {serverState.transport !== 'stdio' && (
+                    <div className="bg-muted rounded p-2">
+                      <div className="text-muted-foreground">端口</div>
+                      <div className="font-mono font-medium">{serverState.port}</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-muted rounded p-2">
+                    <div className="text-muted-foreground">运行时间</div>
+                    <div className="font-medium">{formatUptime(serverState.uptime)}</div>
+                  </div>
+                  <div className="bg-muted rounded p-2">
+                    <div className="text-muted-foreground">客户端</div>
+                    <div className="font-medium">
+                      {serverState.clientCount}
+                      {' '}
+                      个连接
+                    </div>
+                  </div>
+                </div>
+
+                <Separator />
+              </>
+            )}
 
             {state.status === 'connected' && (
               <>
@@ -153,10 +257,18 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
                     </div>
                   </div>
                   <div className="bg-muted rounded p-2">
-                    <div className="text-muted-foreground">质量</div>
+                    <div className="text-muted-foreground">连接质量</div>
                     <div className="font-medium">
                       {state.qualityScore}
                       %
+                      <span className={`ml-1 inline-block size-2 rounded-full ${
+                        state.qualityScore >= 80
+                          ? 'bg-green-500'
+                          : state.qualityScore >= 60
+                            ? 'bg-yellow-500'
+                            : state.qualityScore >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                      }`}
+                      />
                     </div>
                   </div>
                 </div>
@@ -175,17 +287,28 @@ export function ConnectionStatus({ compact = false, showDetails = true }: Connec
               </div>
             )}
 
-            {state.status !== 'connected' && (
+            <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                className="w-full gap-1"
+                className="flex-1 gap-1"
                 onClick={handleReconnect}
               >
                 <RefreshCw className="size-3" />
-                重新连接
+                刷新状态
               </Button>
-            )}
+              {serverState?.transport !== 'stdio' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1"
+                  onClick={handleRestartServer}
+                >
+                  <Server className="size-3" />
+                  重启服务
+                </Button>
+              )}
+            </div>
           </div>
         </PopoverContent>
       )}

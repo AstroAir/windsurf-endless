@@ -4,6 +4,7 @@
 
 import { createContext, useContext, useEffect, useReducer, useRef } from 'react';
 
+import { sessionManager } from '../lib';
 import { defaultSettings } from '../types';
 import { vscode } from '../utils/vscode';
 
@@ -24,6 +25,7 @@ const initialState: AppState = {
   activeConversationId: null,
   activeSessionId: null,
   workspacePath: '',
+  panelId: null,
 };
 
 type Action
@@ -39,7 +41,8 @@ type Action
     | { type: 'ADD_HISTORY_ITEM'; payload: HistoryItem }
     | { type: 'DELETE_HISTORY_ITEM'; payload: string }
     | { type: 'CLEAR_HISTORY' }
-    | { type: 'LOAD_STATE'; payload: Partial<AppState> };
+    | { type: 'LOAD_STATE'; payload: Partial<AppState> }
+    | { type: 'SET_PANEL_ID'; payload: string };
 
 function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -87,6 +90,8 @@ function appReducer(state: AppState, action: Action): AppState {
       return { ...state, history: [] };
     case 'LOAD_STATE':
       return { ...state, ...action.payload };
+    case 'SET_PANEL_ID':
+      return { ...state, panelId: action.payload };
     default:
       return state;
   }
@@ -135,7 +140,16 @@ export function AppProvider({ children }: AppProviderProps) {
         dispatch({ type: 'LOAD_STATE', payload: message.data });
       }
       else if (message.type === 'state_sync') {
-        dispatch({ type: 'LOAD_STATE', payload: message.data as Partial<AppState> });
+        // Capture panelId from the first state_sync message
+        if (message.panelId && !stateRef.current.panelId) {
+          dispatch({ type: 'SET_PANEL_ID', payload: message.panelId });
+          // Also sync panelId to sessionManager for localStorage isolation
+          sessionManager.setPanelId(message.panelId);
+        }
+        // Only accept state_sync if panelId matches or we don't have one yet
+        if (!stateRef.current.panelId || message.panelId === stateRef.current.panelId) {
+          dispatch({ type: 'LOAD_STATE', payload: message.data as Partial<AppState> });
+        }
       }
     };
 

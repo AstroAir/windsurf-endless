@@ -92,7 +92,8 @@ export class InfiniteAskPanel {
     this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
     this._panel.webview.html = WebviewHelper.setupHtml(this._panel.webview, context);
 
-    WebviewHelper.setupWebviewHooks(this._panel.webview, this._disposables, context);
+    // Pass panelId to setupWebviewHooks for proper window isolation
+    WebviewHelper.setupWebviewHooks(this._panel.webview, this._disposables, context, panelId);
     this._setupMessageHandler();
   }
 

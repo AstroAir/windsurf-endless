@@ -2,6 +2,27 @@
  * Type definitions for Windsurf Endless
  */
 
+// Transport type for MCP connection
+export type TransportType = 'http' | 'stdio' | 'auto';
+
+// Connection mode for advanced configuration
+export type ConnectionMode = 'simple' | 'advanced';
+
+// Port preset options
+export interface PortPreset {
+  name: string;
+  port: number;
+  description: string;
+}
+
+export const portPresets: PortPreset[] = [
+  { name: '默认', port: 6000, description: '推荐端口' },
+  { name: '备用 1', port: 6001, description: '备用端口' },
+  { name: '备用 2', port: 6002, description: '备用端口' },
+  { name: '高位', port: 16000, description: '避免冲突' },
+  { name: '自定义', port: 0, description: '手动输入' },
+];
+
 // Settings types
 export interface Settings {
   // General settings
@@ -12,6 +33,17 @@ export interface Settings {
   // MCP settings
   mcpAutoConfig: boolean;
   mcpServerPath: string;
+  mcpServerName: string;
+  mcpServerPort: number;
+
+  // Transport settings
+  transportType: TransportType;
+  connectionMode: ConnectionMode;
+  autoReconnect: boolean;
+  reconnectAttempts: number;
+  connectionTimeout: number; // in seconds
+  fallbackToStdio: boolean; // Auto fallback to stdio if HTTP fails
+  fallbackPorts: number[]; // Fallback ports to try
 
   // Dialog settings
   dialogTimeout: number; // in hours
@@ -35,6 +67,15 @@ export const defaultSettings: Settings = {
   language: 'zh-CN',
   mcpAutoConfig: true,
   mcpServerPath: '',
+  mcpServerName: 'windsurf-endless',
+  mcpServerPort: 6000,
+  transportType: 'http',
+  connectionMode: 'simple',
+  autoReconnect: true,
+  reconnectAttempts: 5,
+  connectionTimeout: 10,
+  fallbackToStdio: false,
+  fallbackPorts: [6001, 6002, 16000],
   dialogTimeout: 24,
   dialogPosition: 'center',
   dialogTheme: 'system',
@@ -192,6 +233,7 @@ export interface AppState {
   activeConversationId: string | null;
   activeSessionId: string | null;
   workspacePath?: string;
+  panelId: string | null;
 }
 
 // Message types for communication

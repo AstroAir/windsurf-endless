@@ -1,10 +1,17 @@
 import { commands, env, window, workspace } from 'vscode';
 
-import { setEnvironmentConfig, setFillInputHandler, setPopupHandler, setPromptOptimizerHandler, startHTTPServer, stopHTTPServer } from './mcp';
-import { configureMCP, injectRules, removeMCPConfig } from './services/config';
+import {
+  setEnvironmentConfig,
+  setFillInputHandler,
+  setPopupHandler,
+  setPromptOptimizerHandler,
+  startHTTPServer,
+  stopHTTPServer,
+} from './mcp';
+import { configureMCP, defaultMCPConfig, injectRules, removeMCPConfig } from './services/config';
 import { isWindsurfEnvironment, optimizePrompt } from './services/promptOptimizer';
+import { getMCPSettings, resetRandomizedToolNames, SidebarPanelProvider } from './views/helper';
 import { InfiniteAskPanel } from './views/infiniteAskPanel';
-import { MainPanel } from './views/panel';
 
 import type { ExtensionContext } from 'vscode';
 
@@ -80,26 +87,54 @@ export function activate(context: ExtensionContext) {
   });
 
   // Start HTTP MCP server for HTTP transport mode
-  startHTTPServer(6000).then(() => {
-    console.log('MCP HTTP server started on port 6000');
+  // Load saved MCP settings or use defaults
+  const mcpSettings = getMCPSettings(context);
+  const serverPort = mcpSettings?.serverPort ?? defaultMCPConfig.serverPort;
+
+  startHTTPServer(serverPort).then(() => {
+    console.log(`MCP HTTP server started on port ${serverPort}`);
   }).catch((error) => {
     console.error('Failed to start MCP HTTP server:', error);
+    window.showErrorMessage(`无法启动 MCP 服务器 (端口 ${serverPort}): ${error.message || error}`);
   });
 
   // 1. Initial Configuration - Configure MCP and inject rules
-  configureMCP(context);
+  configureMCP(context, {
+    serverName: mcpSettings?.serverName ?? defaultMCPConfig.serverName,
+    serverPort,
+  });
   injectRules(context);
 
-  // 2. Register Commands
+  // 2. Register Sidebar Panel Provider
+  const sidebarProvider = new SidebarPanelProvider(context);
   context.subscriptions.push(
-    // Show main panel
+    window.registerWebviewViewProvider(SidebarPanelProvider.viewType, sidebarProvider, {
+      webviewOptions: {
+        retainContextWhenHidden: true,
+      },
+    }),
+  );
+
+  // 3. Register Commands
+  context.subscriptions.push(
+    // Show main panel (now focuses sidebar)
     commands.registerCommand('windsurf-endless.showPanel', async () => {
-      MainPanel.render(context);
+      // Focus the sidebar panel
+      await commands.executeCommand('windsurf-endless.sidebarView.focus');
+    }),
+
+    // Focus sidebar panel command
+    commands.registerCommand('windsurf-endless.focusSidebar', async () => {
+      await commands.executeCommand('windsurf-endless.sidebarView.focus');
     }),
 
     // Manual configuration command
     commands.registerCommand('windsurf-endless.configure', async () => {
-      configureMCP(context);
+      const currentSettings = getMCPSettings(context);
+      configureMCP(context, {
+        serverName: currentSettings?.serverName ?? defaultMCPConfig.serverName,
+        serverPort: currentSettings?.serverPort ?? defaultMCPConfig.serverPort,
+      });
       injectRules(context);
       window.showInformationMessage('Windsurf Endless: Configuration updated successfully!');
     }),
@@ -126,6 +161,27 @@ export function activate(context: ExtensionContext) {
       removeMCPConfig();
       window.showInformationMessage('Windsurf Endless: MCP configuration removed.');
     }),
+
+    // Restart extension / reload window
+    commands.registerCommand('windsurf-endless.restart', async () => {
+      const choice = await window.showWarningMessage(
+        '确定要重新加载窗口吗？这将重启所有扩展。',
+        { modal: true },
+        '确定',
+        '取消',
+      );
+
+      if (choice === '确定') {
+        await commands.executeCommand('workbench.action.reloadWindow');
+      }
+    }),
+
+    // Open MCP settings
+    commands.registerCommand('windsurf-endless.openMcpSettings', async () => {
+      // Focus sidebar and navigate to settings
+      await commands.executeCommand('windsurf-endless.sidebarView.focus');
+      window.showInformationMessage('请在侧边栏的"设置"标签页中配置 MCP 服务器。');
+    }),
   );
 
   // 3. Watch for workspace folder changes
@@ -141,6 +197,8 @@ export function deactivate() {
   setPopupHandler(null);
   setPromptOptimizerHandler(null);
   setFillInputHandler(null);
+  // Reset randomized tool names for next activation
+  resetRandomizedToolNames();
   // Stop HTTP server on deactivation
   stopHTTPServer();
 }

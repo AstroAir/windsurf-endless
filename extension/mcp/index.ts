@@ -3,7 +3,11 @@
  */
 
 export {
+  checkPortAvailable,
+  findAvailablePort,
+  getServerState,
   REQUEST_TIMEOUT,
+  restartHTTPServer,
   setEnvironmentConfig,
   setFillInputHandler,
   setPopupHandler,
@@ -13,6 +17,8 @@ export {
   startMCPServer,
   startStdioServer,
   stopHTTPServer,
+  subscribeToServerState,
+  switchTransport,
   VERSION,
 } from './server';
 export type {
@@ -26,4 +32,7 @@ export type {
   PromptOptimizeRequest,
   PromptOptimizeResult,
   PromptOptimizerHandler,
+  ServerState,
+  ServerStateCallback,
+  TransportType,
 } from './server';

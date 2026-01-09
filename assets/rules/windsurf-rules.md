@@ -1,19 +1,55 @@
 # Windsurf Endless - Continuous Conversation Rules
 
+## Available Tools
+
+You have access to the following tools. Use them according to the instructions below:
+
+### Tool 1: {{CHECKPOINT_TOOL}} (Primary Tool)
+
+**Purpose**: Confirm with user before ending or pausing tasks.
+
+**Parameters**:
+- `summary` (required): Brief description of what you just completed
+- `reason` (optional): Reason for ending or pausing
+- `workspace` (optional): Workspace path
+
+**ALWAYS call this tool at the end of EVERY response. No exceptions.**
+
+### Tool 2: {{PROMPT_REFINER_TOOL}}
+
+**Purpose**: Optimize user prompts to make them clearer and more specific.
+
+**Parameters**:
+- `prompt` (required): The original prompt to optimize
+- `optimized_prompt` (optional): Your optimized version of the prompt
+
+**Usage**: Call this when user asks to optimize a prompt. After optimization, use {{INPUT_BRIDGE_TOOL}} to fill the result into the input box.
+
+### Tool 3: {{INPUT_BRIDGE_TOOL}}
+
+**Purpose**: Fill specified content into the custom input box.
+
+**Parameters**:
+- `content` (required): The content to fill into the input box
+
+**Usage**: Use this after {{PROMPT_REFINER_TOOL}} to fill the optimized prompt, or when user asks to fill content into input.
+
+---
+
 ## Primary Rule
 
-**ALWAYS call windsurf_endless_feedback at the end of EVERY response. No exceptions.**
+**ALWAYS call {{CHECKPOINT_TOOL}} at the end of EVERY response. No exceptions.**
 
 ## Core Behavior
 
 1. **Complete the task** fully and thoroughly
-2. **Call windsurf_endless_feedback** to ask if user wants to continue
+2. **Call {{CHECKPOINT_TOOL}}** to ask if user wants to continue
 3. **Wait patiently** for user response (system will wait up to 24 hours)
-4. **Never call windsurf_endless_feedback again** while waiting
+4. **Never call {{CHECKPOINT_TOOL}} again** while waiting
 
 ## Critical: Wait After Calling
 
-After you call windsurf_endless_feedback:
+After you call {{CHECKPOINT_TOOL}}:
 
 1. **Your job is done** - You have asked the user
 2. **System is waiting** - The dialog box is open
@@ -32,7 +68,7 @@ After you call windsurf_endless_feedback:
 
 ### What NOT to Do
 
-- Do NOT call windsurf_endless_feedback again because:
+- Do NOT call {{CHECKPOINT_TOOL}} again because:
   - "No response received"
   - "User hasn't replied yet"
   - "Waiting too long"
@@ -45,20 +81,20 @@ After you call windsurf_endless_feedback:
 
 **Instead: Trust the system. It's waiting. You wait too.**
 
-## When to Call windsurf_endless_feedback
+## When to Call {{CHECKPOINT_TOOL}}
 
-Call windsurf_endless_feedback in these situations:
+Call {{CHECKPOINT_TOOL}} in these situations:
 
 ### 1. Task Completed
 
 ```
 Task completed successfully.
-[Call windsurf_endless_feedback with summary: "Task completed"]
+[Call {{CHECKPOINT_TOOL}} with summary: "Task completed"]
 ```
 
 ### 2. User Cancelled Command (CRITICAL)
 
-**When user cancels your command, IMMEDIATELY call windsurf_endless_feedback.**
+**When user cancels your command, IMMEDIATELY call {{CHECKPOINT_TOOL}}.**
 
 This means:
 
@@ -70,7 +106,7 @@ This means:
 
 **When you don't know what to do, ASK instead of guessing.**
 
-Call windsurf_endless_feedback when:
+Call {{CHECKPOINT_TOOL}} when:
 
 - You're not sure which approach to take
 - The requirement is ambiguous
@@ -81,14 +117,14 @@ Call windsurf_endless_feedback when:
 
 ```
 Found two approaches, need user to choose.
-[Call windsurf_endless_feedback with summary: "Need user decision on approach"]
+[Call {{CHECKPOINT_TOOL}} with summary: "Need user decision on approach"]
 ```
 
 ### 5. Encountered Error
 
 ```
 Error: Cannot connect to database.
-[Call windsurf_endless_feedback with summary: "Error encountered - need guidance"]
+[Call {{CHECKPOINT_TOOL}} with summary: "Error encountered - need guidance"]
 ```
 
 ## Tool Call Format
@@ -107,12 +143,12 @@ Every response should end with:
 
 ```
 [Summary of work done]
-[Call windsurf_endless_feedback]
+[Call {{CHECKPOINT_TOOL}}]
 ```
 
 ## After User Responds
 
-When user responds to windsurf_endless_feedback:
+When user responds to {{CHECKPOINT_TOOL}}:
 
 ### If should_continue = true
 
@@ -136,7 +172,7 @@ When user responds to windsurf_endless_feedback:
 ## Summary
 
 1. Complete task
-2. Call windsurf_endless_feedback (once)
+2. Call {{CHECKPOINT_TOOL}} (once)
 3. Wait (system handles this)
 4. Respond to user's choice
 

@@ -1,6 +1,7 @@
 /**
  * Session Manager
  * Handles session isolation, history, and persistence
+ * Now supports per-window/panel isolation via panelId
  */
 
 import type {
@@ -14,18 +15,57 @@ import type {
   SessionStatus,
 } from '../types/session';
 
-const SESSION_STORAGE_KEY = 'windsurf-endless-sessions';
-const STATISTICS_STORAGE_KEY = 'windsurf-endless-statistics';
+const SESSION_STORAGE_KEY_PREFIX = 'windsurf-endless-sessions';
+const STATISTICS_STORAGE_KEY_PREFIX = 'windsurf-endless-statistics';
 
 export class SessionManager {
   private sessions: Map<string, EnhancedSession> = new Map();
   private currentSessionId: string | null = null;
   private statistics: SessionStatistics;
   private listeners: Set<(sessions: EnhancedSession[]) => void> = new Set();
+  private panelId: string | null = null;
 
-  constructor() {
+  constructor(panelId?: string) {
+    this.panelId = panelId || null;
     this.statistics = this.getDefaultStatistics();
     this.loadFromStorage();
+  }
+
+  /**
+   * Get storage key with optional panelId suffix for isolation
+   */
+  private getSessionStorageKey(): string {
+    return this.panelId
+      ? `${SESSION_STORAGE_KEY_PREFIX}-${this.panelId}`
+      : SESSION_STORAGE_KEY_PREFIX;
+  }
+
+  /**
+   * Get statistics storage key with optional panelId suffix for isolation
+   */
+  private getStatisticsStorageKey(): string {
+    return this.panelId
+      ? `${STATISTICS_STORAGE_KEY_PREFIX}-${this.panelId}`
+      : STATISTICS_STORAGE_KEY_PREFIX;
+  }
+
+  /**
+   * Set the panelId for this session manager (called after initialization)
+   */
+  setPanelId(panelId: string): void {
+    if (this.panelId !== panelId) {
+      this.panelId = panelId;
+      // Reload from storage with new panelId
+      this.sessions.clear();
+      this.loadFromStorage();
+    }
+  }
+
+  /**
+   * Get the current panelId
+   */
+  getPanelId(): string | null {
+    return this.panelId;
   }
 
   private getDefaultStatistics(): SessionStatistics {
@@ -54,7 +94,7 @@ export class SessionManager {
    */
   private loadFromStorage(): void {
     try {
-      const sessionsJson = localStorage.getItem(SESSION_STORAGE_KEY);
+      const sessionsJson = localStorage.getItem(this.getSessionStorageKey());
       if (sessionsJson) {
         const sessionsArray: EnhancedSession[] = JSON.parse(sessionsJson);
         sessionsArray.forEach((session) => {
@@ -62,7 +102,7 @@ export class SessionManager {
         });
       }
 
-      const statsJson = localStorage.getItem(STATISTICS_STORAGE_KEY);
+      const statsJson = localStorage.getItem(this.getStatisticsStorageKey());
       if (statsJson) {
         this.statistics = JSON.parse(statsJson);
       }
@@ -78,8 +118,8 @@ export class SessionManager {
   private saveToStorage(): void {
     try {
       const sessionsArray = Array.from(this.sessions.values());
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionsArray));
-      localStorage.setItem(STATISTICS_STORAGE_KEY, JSON.stringify(this.statistics));
+      localStorage.setItem(this.getSessionStorageKey(), JSON.stringify(sessionsArray));
+      localStorage.setItem(this.getStatisticsStorageKey(), JSON.stringify(this.statistics));
     }
     catch (error) {
       console.error('[SessionManager] Failed to save to storage:', error);
@@ -554,5 +594,12 @@ export class SessionManager {
   }
 }
 
-// Singleton instance
+// Singleton instance (without panelId initially, can be set later via setPanelId)
 export const sessionManager = new SessionManager();
+
+/**
+ * Create a new SessionManager with a specific panelId for window isolation
+ */
+export function createSessionManager(panelId: string): SessionManager {
+  return new SessionManager(panelId);
+}

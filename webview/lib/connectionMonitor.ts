@@ -1,9 +1,10 @@
 /**
  * Connection Monitor
  * Monitors MCP server connection status and health
+ * Supports HTTP and Stdio transport types
  */
 
-import type { ConnectionState, ConnectionStatus } from '../types/session';
+import type { ConnectionState, ConnectionStatus, ServerState, TransportType } from '../types/session';
 
 const PING_INTERVAL = 30000; // 30 seconds
 const PING_TIMEOUT = 5000; // 5 seconds
@@ -18,6 +19,8 @@ export class ConnectionMonitor {
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private listeners: Set<ConnectionChangeCallback> = new Set();
   private mcpEndpoint: string | null = null;
+  private currentTransport: TransportType = 'http';
+  private serverState: ServerState | null = null;
 
   constructor() {
     this.state = this.getDefaultState();
@@ -30,6 +33,7 @@ export class ConnectionMonitor {
       lastPing: 0,
       reconnectAttempts: 0,
       qualityScore: 0,
+      transport: 'http',
     };
   }
 
@@ -55,6 +59,44 @@ export class ConnectionMonitor {
    */
   getState(): ConnectionState {
     return { ...this.state };
+  }
+
+  /**
+   * Set transport type
+   */
+  setTransport(transport: TransportType): void {
+    this.currentTransport = transport;
+    this.state.transport = transport;
+    this.notifyListeners();
+  }
+
+  /**
+   * Get current transport type
+   */
+  getTransport(): TransportType {
+    return this.currentTransport;
+  }
+
+  /**
+   * Update server state from extension
+   */
+  setServerState(serverState: ServerState): void {
+    this.serverState = serverState;
+    this.state.serverState = serverState;
+    this.state.transport = serverState.transport;
+    this.currentTransport = serverState.transport;
+
+    // Update connection status based on server state
+    if (serverState.isRunning) {
+      if (this.state.status !== 'connected') {
+        this.updateStatus('connected');
+      }
+    }
+    else {
+      this.updateStatus('disconnected', serverState.error);
+    }
+
+    this.notifyListeners();
   }
 
   /**
@@ -151,6 +193,12 @@ export class ConnectionMonitor {
    * Perform a ping to check connection
    */
   private async ping(): Promise<void> {
+    // For stdio transport, rely on extension updates
+    if (this.currentTransport === 'stdio') {
+      this.simulateStdioPing();
+      return;
+    }
+
     if (!this.mcpEndpoint) {
       // In extension context, we check by sending a message
       this.simulatePing();
@@ -182,6 +230,23 @@ export class ConnectionMonitor {
     catch (error: any) {
       this.handlePingError(error);
     }
+  }
+
+  /**
+   * Simulate ping for stdio transport
+   */
+  private simulateStdioPing(): void {
+    // For stdio, we rely on the extension to report status
+    // Just update the last ping time
+    this.state.lastPing = Date.now();
+
+    // If server state says running, assume connected
+    if (this.serverState?.isRunning) {
+      this.state.latency = 0; // No network latency for stdio
+      this.updateStatus('connected');
+    }
+
+    this.notifyListeners();
   }
 
   /**
@@ -250,10 +315,14 @@ export class ConnectionMonitor {
   /**
    * Update status from external source (extension)
    */
-  updateFromExtension(status: ConnectionStatus, latency?: number): void {
+  updateFromExtension(status: ConnectionStatus, latency?: number, transport?: TransportType): void {
     this.state.status = status;
     if (latency !== undefined) {
       this.state.latency = latency;
+    }
+    if (transport !== undefined) {
+      this.state.transport = transport;
+      this.currentTransport = transport;
     }
     this.state.lastPing = Date.now();
     this.updateQualityScore();
@@ -264,8 +333,13 @@ export class ConnectionMonitor {
    * Get status text
    */
   getStatusText(): string {
+    const transportSuffix = this.currentTransport !== 'http' ? ` (${this.currentTransport.toUpperCase()})` : '';
+
     switch (this.state.status) {
       case 'connected':
+        if (this.currentTransport === 'stdio') {
+          return `已连接${transportSuffix}`;
+        }
         return `已连接 (${this.state.latency}ms)`;
       case 'connecting':
         return this.state.reconnectAttempts > 0
